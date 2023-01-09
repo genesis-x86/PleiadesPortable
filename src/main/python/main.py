@@ -6,14 +6,64 @@ from PySide2.QtWidgets import QPushButton
 from PySide2 import QtCore
 
 import sys
+import os
+import yaml
 from main_window import Ui_MainWindow
 from new_cluster_dialog import Ui_new_cluster_dialog
 
 class MainWindow(QMainWindow, Ui_MainWindow):
+
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         self.add_cluster_btn.clicked.connect(self.add_cluster_dialog)
+        self.load_config()
+        self.load_cluster_config()
+
+
+    # Remember to fill this out later
+    def load_cluster_config(self):
+        os.chdir(f'./config')
+
+        if len(self.clusters) != len(os.listdir()):
+            self.show_warning("Warning: App config file does not match with cluster config folder")
+
+        if len(self.clusters) != 0:
+            for cluster in self.clusters:
+                with open(f'./{cluster}.yaml', "r") as file:
+                    config = yaml.safe_load(file)
+
+                    cluster_name = list(config.keys())[0]
+                    username = config[cluster_name]["username"]
+                    nodes = config[cluster_name]["nodes"]
+                    password = config[cluster_name]["password"]
+
+                    self.add_config(cluster_name, username, password, nodes)
+
+
+
+    def load_config(self):
+
+        os.chdir(f'../../../etc')
+        
+        if os.path.exists(f'./app_config.yaml') is False:
+
+            self.preferences = {
+                "preferences": {
+                    "clusters": []
+                }
+            }
+
+            with open(f'./app_config.yaml', "x") as file:
+                yaml.safe_dump(self.preferences, file)
+
+
+        else:
+            with open(f'./app_config.yaml', "r") as file:
+                self.preferences = yaml.safe_load(file)
+
+        self.clusters = self.preferences["preferences"]["clusters"]
+
 
 
     def add_cluster_dialog(self):
@@ -44,6 +94,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.show_warning("Error: Invalid input for nodes")
         else:
             qd.close()
+            self.write_config(dialog.cluster_name.text(), dialog.username.text(), dialog.password.text(), table_data)
             self.add_config(dialog.cluster_name.text(), dialog.username.text(), dialog.password.text(), table_data)
 
     def show_warning(self, error_message):
@@ -53,6 +104,35 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         msg.setText(error_message)
         msg.setWindowTitle("Error")
         msg.exec_()
+
+
+    def write_config(self, cluster_name, username, password, nodes):
+        print(os.getcwd())
+
+        cluster_data = {
+            cluster_name : {
+                "username": username,
+                "password": password,
+                "nodes": nodes
+            }
+        }
+
+
+        with open(f'./{cluster_name}.yaml', "x") as file:
+            yaml.dump(cluster_data, file)
+
+        with open(f'../app_config.yaml', "r") as file:
+            config = yaml.safe_load(file)
+            config["preferences"]["clusters"].append(cluster_name)
+        with open(f'../app_config.yaml','w') as file:
+            yaml.safe_dump(config, file)
+        
+        #self.load_config()
+        
+
+
+
+
 
 
     def add_config(self, cluster_name, username, password, nodes):
